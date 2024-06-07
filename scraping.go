@@ -61,6 +61,7 @@ func (s *Server) updateLastCursor(curs int64) error {
 	s.cursor = curs
 	s.cursorLk.Unlock()
 
+	// just to avoid writing too frequently
 	if curs%200 == 0 {
 		if err := s.db.Model(LastSeq{}).Where("id = 1").Update("seq", curs).Error; err != nil {
 			return err
@@ -70,6 +71,7 @@ func (s *Server) updateLastCursor(curs int64) error {
 }
 
 func (s *Server) areWeInterested(evt *atproto.SyncSubscribeRepos_Commit) bool {
+	// only care about records we write
 	for _, op := range evt.Ops {
 		if strings.HasPrefix(op.Path, "world.bsky.demo") {
 			return true
@@ -102,14 +104,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil
 			}
 
-			log.Println()
-			if evt.TooBig && evt.Prev != nil {
-				log.Printf("skipping non-genesis too big events for now: %d", evt.Seq)
-				return nil
-			}
-
 			if evt.TooBig {
-				return nil
 				if err := s.processTooBigCommit(ctx, evt); err != nil {
 					log.Printf("failed to process tooBig event: %s", err)
 					return nil
@@ -168,7 +163,13 @@ func (s *Server) Run(ctx context.Context) error {
 	var backoff time.Duration
 	for {
 		d := websocket.DefaultDialer
-		con, _, err := d.Dial(fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", s.relayHost, s.getCursor()), http.Header{})
+
+		url := fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos", s.relayHost)
+		if curs := s.getCursor(); curs > 0 {
+			url += fmt.Sprintf("?cursor=%d", s.getCursor())
+		}
+
+		con, _, err := d.Dial(url, http.Header{})
 		if err != nil {
 			log.Printf("failed to dial: %s", err)
 			time.Sleep(backoff)
@@ -201,8 +202,6 @@ func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, 
 			return fmt.Errorf("checking user: %w", err)
 		}
 
-		_ = col
-		_ = u
 		switch rec := rec.(type) {
 		case *records.Comment:
 			return s.handleCreateComment(ctx, u, path, rec)
@@ -217,18 +216,11 @@ func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, 
 			return err
 		}
 
-		_ = u
-
-		parts := strings.Split(path, "/")
-		// Not handling like/repost deletes because it requires individually tracking *every* single like
-		switch parts[0] {
-		// TODO: handle profile deletes, its an edge case, but worth doing still
-		case "app.bsky.feed.post":
-			/*
-				if err := s.deletePost(ctx, u, path); err != nil {
-					return err
-				}
-			*/
+		switch col {
+		case "world.bsky.demo.comment":
+			_ = u
+		case "world.bsky.demo.profile":
+			_ = u
 		}
 	}
 
@@ -240,6 +232,7 @@ func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, 
 }
 
 func (s *Server) processTooBigCommit(ctx context.Context, evt *atproto.SyncSubscribeRepos_Commit) error {
+	// TODO: these happen, infrequently, need to handle them
 	/*
 
 		repodata, err := atproto.SyncGetRepo(ctx, s.bgsxrpc, evt.Repo, "")
@@ -295,16 +288,6 @@ func (s *Server) getOrCreateUser(ctx context.Context, did string) (*User, error)
 		return nil, err
 	}
 	if u.ID == 0 {
-		// TODO: figure out peoples handles
-		/*
-			h, err := s.handleFromDid(ctx, did)
-			if err != nil {
-				log.Printf("failed to resolve did to handle", "did", did, "err", err)
-			} else {
-				u.Handle = h
-			}
-		*/
-
 		u.Did = did
 		if err := s.db.Create(&u).Error; err != nil {
 			s.userCache.Remove(did)

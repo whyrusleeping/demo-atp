@@ -45,9 +45,10 @@ type User struct {
 type Comment struct {
 	gorm.Model
 
-	Author  uint
+	Author  uint `gorm:"uniqueIndex:idx_author_rkey"`
 	Profile uint
 	Created time.Time
+	Rkey    string `gorm:"uniqueIndex:idx_author_rkey"`
 	Text    string
 }
 
