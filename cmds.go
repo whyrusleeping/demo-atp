@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/urfave/cli/v2"
@@ -105,17 +108,13 @@ var createCommentCmd = &cli.Command{
 		profile := cctx.Args().Get(0)
 		text := cctx.Args().Get(1)
 
-		comment := &records.Comment{
-			CreatedAt: time.Now().Unix(),
-			Profile:   profile,
-			Text:      text,
-		}
-
 		xrpcc := &xrpc.Client{
 			Host: cctx.String("pds-host"),
 		}
 
-		resp, err := atproto.ServerCreateSession(context.TODO(), xrpcc, &atproto.ServerCreateSession_Input{
+		ctx := context.TODO()
+
+		resp, err := atproto.ServerCreateSession(ctx, xrpcc, &atproto.ServerCreateSession_Input{
 			Identifier: cctx.String("handle"),
 			Password:   cctx.String("password"),
 		})
@@ -123,11 +122,27 @@ var createCommentCmd = &cli.Command{
 			return err
 		}
 
+		if !strings.HasPrefix(profile, "did:") {
+			dir := identity.DefaultDirectory()
+			resp, err := dir.LookupHandle(ctx, syntax.Handle(profile))
+			if err != nil {
+				return err
+			}
+
+			profile = resp.DID.String()
+		}
+
 		xrpcc.Auth = &xrpc.AuthInfo{
 			AccessJwt:  resp.AccessJwt,
 			RefreshJwt: resp.RefreshJwt,
 			Handle:     resp.Handle,
 			Did:        resp.Did,
+		}
+
+		comment := &records.Comment{
+			CreatedAt: time.Now().Unix(),
+			Profile:   profile,
+			Text:      text,
 		}
 
 		validate := false

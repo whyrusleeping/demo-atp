@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -88,6 +89,7 @@ func main() {
 			db:        db,
 			relayHost: cctx.String("relay-host"),
 			userCache: uc,
+			directory: identity.DefaultDirectory(),
 		}
 
 		go s.Run(context.TODO())
@@ -121,6 +123,42 @@ func (s *Server) uidToDid(uid uint) (string, error) {
 	return u.Did, nil
 }
 
+func (s *Server) getUserByIdent(ctx context.Context, ident string) (*User, error) {
+	val, err := syntax.ParseAtIdentifier(ident)
+	if err != nil {
+		return nil, err
+	}
+
+	if !val.IsDID() {
+		var uh User
+		if err := s.db.Find(&uh, "handle = ?", ident).Error; err != nil {
+			return nil, err
+		}
+
+		if uh.ID != 0 {
+			return &uh, nil
+		}
+
+		h, err := val.AsHandle()
+		if err != nil {
+			return nil, err
+		}
+
+		resp, err := s.directory.LookupHandle(ctx, h)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := s.db.Model(User{}).Where("did = ?", resp.DID).Update("handle", resp.Handle).Error; err != nil {
+			return nil, err
+		}
+
+		return s.getOrCreateUser(ctx, resp.DID.String())
+	}
+
+	return s.getOrCreateUser(ctx, ident)
+}
+
 type apiComment struct {
 	Author  string    `json:"author"`
 	Created time.Time `json:"created"`
@@ -129,18 +167,9 @@ type apiComment struct {
 
 func (s *Server) handleGetComments(cctx echo.Context) error {
 	user := cctx.Param("user")
-	ident, err := syntax.ParseAtIdentifier(user)
-	if err != nil {
-		return err
-	}
-
-	if !ident.IsDID() {
-		return fmt.Errorf("must specify users by did")
-	}
-
 	ctx := context.TODO()
 
-	u, err := s.getOrCreateUser(ctx, ident.String())
+	u, err := s.getUserByIdent(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -174,18 +203,9 @@ type apiProfile struct {
 
 func (s *Server) handleGetProfileData(cctx echo.Context) error {
 	user := cctx.Param("user")
-	ident, err := syntax.ParseAtIdentifier(user)
-	if err != nil {
-		return err
-	}
-
-	if !ident.IsDID() {
-		return fmt.Errorf("must specify users by did")
-	}
-
 	ctx := context.TODO()
 
-	u, err := s.getOrCreateUser(ctx, ident.String())
+	u, err := s.getUserByIdent(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -206,6 +226,8 @@ func (s *Server) handleGetProfileData(cctx echo.Context) error {
 }
 
 func (s *Server) handleCreateComment(ctx context.Context, u *User, path string, rec *records.Comment) error {
+	pathparts := strings.Split(path, "/")
+
 	log.Println("Handling create comment: ", u.Handle, u.Did)
 	profu, err := s.getOrCreateUser(ctx, rec.Profile)
 	if err != nil {
@@ -228,6 +250,7 @@ func (s *Server) handleCreateComment(ctx context.Context, u *User, path string, 
 		Profile: profu.ID,
 		Created: t,
 		Text:    rec.Text,
+		Rkey:    pathparts[1],
 	}
 
 	if err := s.db.Create(&cmt).Error; err != nil {

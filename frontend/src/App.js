@@ -3,11 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Profile, Login, PublicProfile } from './Profile';
 
 const App = () => {
-  const [token, setToken] = useState(null);
   const [username, setUsername] = useState(null);
 
-  const handleLogin = (token, username) => {
-    setToken(token);
+  const handleLogin = (username) => {
     setUsername(username);
   };
 
@@ -15,7 +13,7 @@ const App = () => {
     <Router>
       <div>
         <h1>Guestbook</h1>
-        {token ? (
+        {username ? (
           <div>
             <nav>
               <ul>
@@ -28,12 +26,8 @@ const App = () => {
               </ul>
             </nav>
             <Routes>
-              <Route path={`/${username}`}>
-                <Profile token={token} username={username} />
-              </Route>
-              <Route path="/">
-                <h2>Welcome, {username}!</h2>
-              </Route>
+              <Route path={`/${username}`} element={<Profile username={username} />} />
+              <Route path="/" element={ <h2>Welcome, {username}!</h2> } />
             </Routes>
           </div>
         ) : (
