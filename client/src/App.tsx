@@ -35,7 +35,6 @@ const App = () => {
               />
               <Route path="/" element={<h2>Welcome, {username}!</h2>} />
             </Routes>
-            from
           </div>
         ) : (
           <Login onLogin={handleLogin} />

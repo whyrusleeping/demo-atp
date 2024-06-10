@@ -31,7 +31,7 @@ Then build the frontend server.
 
 ```
 cd frontend
-npm install
+pnpm i
 ```
 
 ### Running
@@ -46,7 +46,7 @@ Then run the frontend
 
 ```
 cd frontend
-npm start
+pnpm dev
 ```
 
 ### Now put some test data in

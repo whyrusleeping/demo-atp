@@ -118,7 +118,12 @@ const Profile = ({
 
 const PublicProfile = () => {
   const { username } = useParams();
-  const [profile, setProfile] = useState({ handle: "", text: "", links: [] });
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<{
+    handle: "";
+    text: "";
+    links: [];
+  } | null>(null);
   const [comments, setComments] = useState<
     {
       id: string;
@@ -130,18 +135,24 @@ const PublicProfile = () => {
 
   useEffect(() => {
     if (!username) return;
+    setLoading(true);
     fetchComments(username).then(setComments);
 
     getProfileData(username).then(setProfile);
     fetchComments(username);
+    setLoading(false);
   }, [username]);
 
   if (!username) {
     return <div>No username provided</div>;
   }
 
-  if (!profile) {
+  if (loading) {
     return <div>Loading...</div>;
+  }
+
+  if (!profile) {
+    return <div>Profile not found</div>;
   }
 
   return (
