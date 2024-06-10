@@ -46,17 +46,18 @@ const fetchComments = async (username: string) => {
 const createComment = (token: string, commentText: string) => Promise.resolve();
 
 // Login component
-const Login = ({ onLogin }) => {
+const Login = ({
+  onLogin,
+}: {
+  onLogin: (username: string, agent: AtpAgent) => void;
+}) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [agent, setAgent] = useState<AtpAgent | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const la = await login(username, password);
-    setAgent(la);
-    console.log(la);
-    onLogin(la.session!.handle);
+    const agent = await login(username, password);
+    onLogin(agent.session!.handle, agent);
   };
 
   return (
