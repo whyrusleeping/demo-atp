@@ -16,7 +16,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	cli "github.com/urfave/cli/v2"
 	"github.com/whyrusleeping/demo-atp/records"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -74,7 +73,7 @@ func main() {
 		},
 	}
 	app.Action = func(cctx *cli.Context) error {
-		db, err := gorm.Open(sqlite.Open("demo.db"))
+		db, err := gorm.Open(openDB("demo.db"))
 		if err != nil {
 			return err
 		}
