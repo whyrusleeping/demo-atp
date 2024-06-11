@@ -30,7 +30,7 @@ go build
 Then build the frontend server.
 
 ```
-cd frontend
+cd client
 pnpm i
 ```
 
@@ -45,7 +45,7 @@ Run the Go AppView
 Then run the frontend
 
 ```
-cd frontend
+cd client
 pnpm dev
 ```
 

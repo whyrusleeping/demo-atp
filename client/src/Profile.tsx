@@ -18,11 +18,12 @@ const login = async (username: string, password: string) => {
 
 const getProfileData = async (did: string) => {
   try {
-    const response = await fetch(`${server}/getProfileData/${did}`).then(
-      (res) => res.json()
-    );
-    console.log("got response: ", response.data);
-    return response.data;
+    const response = await fetch(`${server}/getProfileData/${did}`);
+    if (!response.ok) throw new Error("Failed to fetch profile data");
+    const data = await response.json();
+
+    console.log("got response:", data);
+    return data;
   } catch (error) {
     console.error("Error fetching comments:", error);
   }
@@ -36,7 +37,7 @@ const fetchComments = async (username: string) => {
     const response = await fetch(
       `${server}/getCommentsForPage/${username}`
     ).then((res) => res.json());
-    return response.data;
+    return response;
   } catch (error) {
     console.error("Error fetching comments:", error);
     return [];
@@ -88,12 +89,11 @@ const Profile = ({
   username: string;
 }) => {
   const [profile, setProfile] = useState({ text: "", links: [] });
-  const [isEditing, setIsEditing] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
 
   useEffect(() => {
-    getProfileData(agent).then(setProfile);
+    getProfileData(username).then(setProfile);
     fetchComments(username).then(setComments);
   }, [agent, username]);
 
