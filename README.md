@@ -30,8 +30,8 @@ go build
 Then build the frontend server.
 
 ```
-cd frontend
-npm install
+cd client
+pnpm i
 ```
 
 ### Running
@@ -45,8 +45,8 @@ Run the Go AppView
 Then run the frontend
 
 ```
-cd frontend
-npm start
+cd client
+pnpm dev
 ```
 
 ### Now put some test data in
